@@ -17,7 +17,7 @@ inflate = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-zlib.MAX_WBITS)
 
 class Drawio:
     """Drawio composer"""
-    tables = []
+    tables = {}
 
     def __init__(self, file_path, compressed=True):
         self.file_path = file_path
@@ -235,14 +235,42 @@ class Drawio:
                 )
                 column += 1
 
-        self.tables.append(name)
-
-        return table_id
+        self.tables[name] = table_id
 
     def load_tables(self):
-        self.tables = []
+        """Collecting all tables names and cells id."""
+        self.tables = {}
         for cell in self._root.childNodes:
             style = cell.getAttribute("style")
             if "shape=table;" in style:
+                table_id = cell.getAttribute("id")
                 name = cell.getAttribute("value")
-                self.tables.append(name)
+                self.tables[name] = table_id
+
+    def find_recursive(self, cell_id):
+        """Return list nested DOM Elements."""
+        cells = []
+        for cell in self._root.childNodes:
+            object_id = cell.getAttribute("id")
+            parent_id = cell.getAttribute("parent")
+            if object_id == cell_id:
+                cells.append(cell)
+            if parent_id == cell_id:
+                cells += self.find_recursive(object_id)
+        return cells
+
+    def remove_cells(self, cells):
+        """Remove DOM Elements."""
+        for cell in cells:
+            self._root.removeChild(cell)
+
+    def remove_table(self, name=""):
+        """Remove table from diagram by name."""
+        table_id = self.tables.get(name)
+        cells = self.find_recursive(table_id)
+        self.remove_cells(cells)
+
+    def replace_table(self, name="", x=0, y=0, width=200, height=200, style=None, data=[]):
+        """Replace table by name with new data."""
+        self.remove_table(name)
+        self.add_table(name, x, y, width, height, style, data)

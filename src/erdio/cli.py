@@ -66,8 +66,14 @@ def convert_file(dbml_file, drawio_file=None, project_name="project"):
             for column in table.columns:
                 column_list.append(["", column.name])
 
-            if table_name not in diagram.tables:
+            if table_name not in diagram.tables.keys():
                 diagram.add_table(
+                    name=table_name,
+                    data=column_list,
+                    style=color,
+                )
+            else:
+                diagram.replace_table(
                     name=table_name,
                     data=column_list,
                     style=color,
