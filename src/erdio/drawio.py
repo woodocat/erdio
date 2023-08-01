@@ -17,6 +17,7 @@ inflate = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-zlib.MAX_WBITS)
 
 class Drawio:
     """Drawio composer"""
+    tables = []
 
     def __init__(self, file_path, compressed=True):
         self.file_path = file_path
@@ -119,6 +120,7 @@ class Drawio:
         self._content = diagram
 
         self.read_diagram()
+        self.load_tables()
 
     def read_diagram(self):
         """Read and uncompress diagram content."""
@@ -233,4 +235,14 @@ class Drawio:
                 )
                 column += 1
 
+        self.tables.append(name)
+
         return table_id
+
+    def load_tables(self):
+        self.tables = []
+        for cell in self._root.childNodes:
+            style = cell.getAttribute("style")
+            if "shape=table;" in style:
+                name = cell.getAttribute("value")
+                self.tables.append(name)
