@@ -194,7 +194,7 @@ class Drawio:
         index = 1
         table_id = f"_{crumbs}-{index}"
         self._cell(
-            geometry={"x": x, "y": x, "width": width, "height": 30 * (len(data) + 1)},
+            geometry={"x": x, "y": y, "width": width, "height": 30 * (len(data) + 1)},
             params={
                 "id": table_id,
                 "value": name,
