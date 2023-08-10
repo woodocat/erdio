@@ -93,6 +93,10 @@ CELLS_FIELD = [
 ]
 
 
+ROW_WIDTH = 240
+ROW_HEIGHT = 30
+
+
 def get_default_color_map():
     return {
         "hub": BLUE,

@@ -24,10 +24,16 @@ def cli():
     "--grid-columns",
     "-c",
     default=0,
-    help="Placing tables as grid with number of columns",
+    help="Placing tables in a grid with number of columns",
     type=int,
 )
-def run(target, grid_columns):
+@click.option(
+    "--remove-common-prefix",
+    "-r",
+    default=True,
+    help="Reduce table name length with removing common prefix",
+)
+def run(target, grid_columns, remove_common_prefix):
     """Convert all files in target directory."""
     for filename in os.listdir(target):
         if not filename.endswith('.dbml'):
@@ -36,28 +42,12 @@ def run(target, grid_columns):
         convert_file(
             dbml_file=dbml_file,
             drawio_file=None,
-            project_name=None,
+            remove_common_prefix=remove_common_prefix,
             grid_columns=grid_columns,
         )
 
 
-@cli.command()
-@click.option(
-    "--dbml-file",
-    help="The diagram-as-code full path to manifest",
-    type=click.Path(),
-)
-@click.option(
-    "--drawio-file",
-    help="Drawio file full path",
-    type=click.Path(),
-)
-def convert(dbml_file, drawio_file):
-    """Run the convertion for single file."""
-    convert_file(dbml_file, drawio_file)
-
-
-def convert_file(dbml_file, drawio_file=None, project_name="project", grid_columns=0):
+def convert_file(dbml_file, drawio_file=None, remove_common_prefix=True, grid_columns=0):
     drawio_file = drawio_file or dbml_file.replace('.dbml', '.drawio')
     diagram = Drawio(drawio_file)
     with open(dbml_file) as f:
@@ -65,16 +55,15 @@ def convert_file(dbml_file, drawio_file=None, project_name="project", grid_colum
 
         col = 0
         row = 0
-        ROW_WIDTH = 240
-        ROW_HEIGHT = 30
         column_max_y = {}
 
-        for table in dbml.tables:
-            if len(table.columns) < 2:
-                # Empty table?
-                continue
+        common_prefix = ""
+        if remove_common_prefix:
+            table_names = [x.name for x in dbml.tables]
+            common_prefix = os.path.commonprefix(table_names)
 
-            table_name = table.name.replace(f"model.{project_name}.", "")
+        for table in dbml.tables:
+            table_name = table.name.replace(common_prefix, "")
 
             prefix = table_name[:3]
             color_default = styles.get_default_color()
@@ -85,8 +74,9 @@ def convert_file(dbml_file, drawio_file=None, project_name="project", grid_colum
             for column in table.columns:
                 column_list.append(["", column.name])
 
-            x = ROW_WIDTH * col
+            x = styles.ROW_WIDTH * col
             y = column_max_y[col] if col in column_max_y else 0
+
             if table_name not in diagram.tables.keys():
                 diagram.add_table(
                     name=table_name,
@@ -102,7 +92,7 @@ def convert_file(dbml_file, drawio_file=None, project_name="project", grid_colum
                     style=color,
                 )
 
-            column_max_y[col] = y + ROW_HEIGHT * len(table.columns) + 40
+            column_max_y[col] = y + styles.ROW_HEIGHT * len(table.columns) + 40
             if grid_columns:
                 col += 1
                 if col == grid_columns:
