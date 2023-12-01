@@ -35,9 +35,11 @@ def cli():
 )
 def run(target, grid_columns, remove_common_prefix):
     """Convert all files in target directory."""
+    found = 0
     for filename in os.listdir(target):
         if not filename.endswith('.dbml'):
             continue
+        found += 1
         dbml_file = os.path.join(target, filename)
         convert_file(
             dbml_file=dbml_file,
@@ -45,6 +47,8 @@ def run(target, grid_columns, remove_common_prefix):
             remove_common_prefix=remove_common_prefix,
             grid_columns=grid_columns,
         )
+    if not found:
+        print("No any DBML-files found.")
 
 
 def convert_file(dbml_file, drawio_file=None, remove_common_prefix=True, grid_columns=0):
@@ -86,11 +90,15 @@ def convert_file(dbml_file, drawio_file=None, remove_common_prefix=True, grid_co
                     y=y,
                 )
             else:
-                diagram.replace_table(
+                diagram.update_table(
                     name=table_name,
                     data=column_list,
-                    style=color,
                 )
+                # diagram.replace_table(
+                #     name=table_name,
+                #     data=column_list,
+                #     style=color,
+                # )
 
             column_max_y[col] = y + styles.ROW_HEIGHT * len(table.columns) + 40
             if grid_columns:

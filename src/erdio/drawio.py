@@ -112,6 +112,12 @@ class Drawio:
         self.compressed = compressed
         self._root = root
 
+    def find_element(self, id):
+        nodes = self._root.childNodes
+        for i in range(len(nodes)):
+            if nodes[i].getAttribute("id") == id:
+                return nodes[i]
+
     def read_document(self):
         """Read the document."""
         self._dom = minidom.parse(self.file_path)
@@ -239,16 +245,49 @@ class Drawio:
 
     def load_tables(self):
         """Collecting all tables names and cells id."""
+        self.index = {}
         self.tables = {}
         for cell in self._root.childNodes:
+            object_id = cell.getAttribute("id")
+            parent_id = cell.getAttribute("parent")
             style = cell.getAttribute("style")
+
             if "shape=table;" in style:
-                table_id = cell.getAttribute("id")
+                table_id = object_id
                 name = cell.getAttribute("value")
-                self.tables[name] = table_id
+                self.index[table_id] = self.tables[name] = {
+                    "id": table_id,
+                    "name": name,
+                    "rows": {},
+                    "type": "table",
+                }
+
+            elif "shape=tableRow" in style:
+                row_id = object_id
+                table = self.index[parent_id]
+                self.index[row_id] = table["rows"][row_id] = {
+                    "id": row_id,
+                    "table_id": table["id"],
+                    "cells": {},
+                    "type": "row",
+                }
+
+            elif "shape=partialRectangle" in style:
+                cell_id = object_id
+                row = self.index[parent_id]
+                table = self.index[row["table_id"]]
+                name = cell.getAttribute("value")
+                self.index[cell_id] = row["cells"][cell_id] = {
+                    "id": cell_id,
+                    "row_id": row["id"],
+                    "table_id": table["id"],
+                    "name": name,
+                    "type": "cell",
+                }
 
     def find_recursive(self, cell_id):
         """Return list nested DOM Elements."""
+        # WARNING: Recursive scanning is too slow
         cells = []
         for cell in self._root.childNodes:
             object_id = cell.getAttribute("id")
@@ -266,11 +305,23 @@ class Drawio:
 
     def remove_table(self, name=""):
         """Remove table from diagram by name."""
-        table_id = self.tables.get(name)
-        cells = self.find_recursive(table_id)
-        self.remove_cells(cells)
+        table = self.tables.get(name)
+        table_id = table["id"]
+        items = [x for x in self.index if self.index[x].get("table_id") == table_id]
+        self.remove_cells(items + [table_id])
 
     def replace_table(self, name="", x=0, y=0, width=200, height=200, style=None, data=[]):
         """Replace table by name with new data."""
         self.remove_table(name)
         self.add_table(name, x, y, width, height, style, data)
+
+    def update_table(self, name="", data=[]):
+        """Update table by name with new data."""
+        table = self.tables.get(name)
+        for r, row_id in enumerate(table["rows"]):
+            row = table["rows"][row_id]
+            for c, cell_id in enumerate(row["cells"]):
+                cell = row["cells"][cell_id]
+                element = self.find_element(cell_id)
+                if data[r][c] != cell["name"]:
+                    element.setAttribute("value", str(data[r][c]))
