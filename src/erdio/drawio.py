@@ -18,6 +18,7 @@ inflate = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-zlib.MAX_WBITS)
 class Drawio:
     """Drawio composer"""
     tables = {}
+    links = []
 
     def __init__(self, file_path, compressed=True):
         self.file_path = file_path
@@ -183,7 +184,7 @@ class Drawio:
 
     def _cell(self, geometry, params, bounds=False):
         """Helper to create mxCell XML element."""
-        params["vertex"] = "1"  # each mxCell element contains vertex
+        params["vertex"] = "1"  # each mxCell table element contains vertex
         cell = self.create_element("mxCell", params)
         geometry_element = self._geometry(**geometry)
         if bounds:
@@ -252,6 +253,7 @@ class Drawio:
             parent_id = cell.getAttribute("parent")
             style = cell.getAttribute("style")
 
+            # Table
             if "shape=table;" in style:
                 table_id = object_id
                 name = cell.getAttribute("value")
@@ -262,6 +264,7 @@ class Drawio:
                     "type": "table",
                 }
 
+            # Row
             elif "shape=tableRow" in style:
                 row_id = object_id
                 table = self.index[parent_id]
@@ -272,6 +275,7 @@ class Drawio:
                     "type": "row",
                 }
 
+            # Cell
             elif "shape=partialRectangle" in style:
                 cell_id = object_id
                 row = self.index[parent_id]
@@ -284,6 +288,14 @@ class Drawio:
                     "name": name,
                     "type": "cell",
                 }
+
+            # Link
+            elif "edgeStyle" in style:
+                source_id = cell.getAttribute("source")
+                target_id = cell.getAttribute("target")
+                if source_id and target_id:
+                    self.links.append((source_id, target_id))
+                    self.links.append((target_id, source_id))
 
     def find_recursive(self, cell_id):
         """Return list nested DOM Elements."""
@@ -325,3 +337,46 @@ class Drawio:
                 element = self.find_element(cell_id)
                 if data[r][c] != cell["name"]:
                     element.setAttribute("value", str(data[r][c]))
+
+    def add_link(self, source="", target="", style=None):
+        """Add simple link as a line without arrows."""
+        crumbs = self.random_crumbs()
+
+        source = self.tables.get(source)
+        target = self.tables.get(target)
+
+        if not source or not target:
+            return
+
+        source_id = source["id"]
+        target_id = target["id"]
+
+        for i, x in enumerate(self.links):
+            if source_id == x[0] and target_id == x[1]:
+                # is already linked
+                return
+
+        index = 1
+        link_id = f"_{crumbs}-{index}"
+        cell = self.create_element(
+            "mxCell",
+            {
+                "id": link_id,
+                "style": styles.LINK,
+                "source": source["id"],
+                "target": target["id"],
+                "edge": "1",
+                "parent": "1",
+            },
+        )
+
+        geometry_relative = self.create_element(
+            name="mxGeometry",
+            params={"relative": "1", "as": "geometry"}
+        )
+
+        cell.appendChild(geometry_relative)
+        self._root.appendChild(cell)
+
+        self.links.append((source_id, target_id))
+        self.links.append((target_id, source_id))

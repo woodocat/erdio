@@ -97,6 +97,17 @@ ROW_WIDTH = 240
 ROW_HEIGHT = 30
 
 
+LINK = (
+    "edgeStyle=none;"
+    "rounded=0;"
+    "orthogonalLoop=1;"
+    "jettySize=auto;"
+    "html=1;"
+    "endArrow=none;"
+    "endFill=0;"
+)
+
+
 def get_default_color_map():
     return {
         "hub": BLUE,
